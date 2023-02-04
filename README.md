@@ -1,2 +1,2 @@
 # node-app
-NodeJS + ReactJs app
+NodeJS + ReactJS app
