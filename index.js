@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import { registerValidation } from './validations/auth.js';
 import { validationResult } from 'express-validator';
 import UserModel from './models/User.js'
+import checkAuth from './utils/checkAuth.js';
+import { SECRET_TOKEN_TYPE } from './constants/tokenType.js';
 
 mongoose.set('strictQuery', true);
 mongoose.connect('mongodb+srv://admin:qwqwqw@cluster0.icohgdv.mongodb.net/blog?retryWrites=true&w=majority')
@@ -42,7 +44,7 @@ app.post('/auth/login', async (req, res) => {
     const token = jwt.sign({
         _id: user._id,
       },
-      'secret',
+			SECRET_TOKEN_TYPE,
       {
         expiresIn: '30d',
       })
@@ -89,19 +91,19 @@ app.post('/auth/register', registerValidation, async (req, res) => {
 
     const user = await doc.save();
 
-    const token = jwt.sign({
-      _id: user._id,
-    },
-      'secret',
-      {
-      expiresIn: '30d',
-    })
+		const token = jwt.sign({
+				_id: user._id,
+			},
+			SECRET_TOKEN_TYPE,
+			{
+				expiresIn: '30d',
+			});
 
-    const { passwordHash: _, ...userData } = user._doc;
+    const {passwordHash: _, ...userData} = user._doc;
 
     res.json({
       ...userData,
-      token
+			token
     })
   } catch(err) {
     console.log(err);
@@ -110,7 +112,29 @@ app.post('/auth/register', registerValidation, async (req, res) => {
       message: 'Something went wrong'
     })
   }
-})
+});
+
+app.get('/auth/me', checkAuth, async (req, res) => {
+  try {
+		const user = await UserModel.findById(req.userId);
+
+		if (!user) {
+			return res.status(404).json({
+				message: 'User not found'
+			})
+		}
+
+		const {passwordHash: _, ...userData} = user._doc;
+
+		res.json(userData)
+  } catch(err) {
+		console.log(err);
+
+		res.status(500).json({
+			message: "Can't get info"
+		})
+  }
+});
 
 app.listen(4444, (err) => {
   if (err) {
