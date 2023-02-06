@@ -1,11 +1,13 @@
 import express from 'express';
 import bcrypt from 'bcrypt'
 import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
 import { registerValidation } from './validations/auth.js';
 import { validationResult } from 'express-validator';
 import UserModel from './models/User.js'
 
-mongoose.connect('mongodb+srv://admin:qwqwqw@cluster0.icohgdv.mongodb.net/?retryWrites=true&w=majority')
+mongoose.set('strictQuery', true);
+mongoose.connect('mongodb+srv://admin:qwqwqw@cluster0.icohgdv.mongodb.net/blog?retryWrites=true&w=majority')
   .then(() => console.log('Database OK'))
   .catch((err) => console.error('Database error', err));
 
@@ -17,33 +19,97 @@ app.get('/', (req, res) => {
   res.send('Hello world');
 });
 
-app.post('/auth/register', registerValidation, async (req, res) => {
-  const errors = validationResult(req);
+app.post('/auth/login', async (req, res) => {
+  try {
+    const user = await UserModel.findOne({
+      email: req.body.email,
+    })
 
-  if (!errors.isEmpty()) {
-    return res.status(400).json(errors.array());
+    if (!user) {
+      return req.status(404).json({
+        message: 'User not found'
+      })
+    }
+
+    const isValidPassword = await bcrypt.compare(req.body.password, user._doc.passwordHash);
+
+    if (!isValidPassword) {
+      return res.status(404).json({
+        message: 'Wrong password',
+      });
+    }
+
+    const token = jwt.sign({
+        _id: user._id,
+      },
+      'secret',
+      {
+        expiresIn: '30d',
+      })
+
+    const { passwordHash, ...userData } = user._doc;
+
+    res.json({
+      ...userData,
+      token
+    })
+  } catch(err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: 'Something went wrong'
+    })
   }
+})
 
-  const {
-    email,
-    fullName,
-    avatarUrl,
-    password
-  } = req.body
+app.post('/auth/register', registerValidation, async (req, res) => {
+  try {
+    const errors = validationResult(req);
 
-  const salt = await bcrypt.genSalt(10);
-  const passwordHash = await bcrypt.hash(password, salt);
+    if (!errors.isEmpty()) {
+      return res.status(400).json(errors.array());
+    }
 
-  const doc = new UserModel({
-    email,
-    fullName,
-    avatarUrl,
-    passwordHash
-  })
+    const {
+      email,
+      fullName,
+      avatarUrl,
+      password
+    } = req.body
 
-  const user = await doc.save();
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
-  res.json(user)
+    const doc = new UserModel({
+      email,
+      fullName,
+      avatarUrl,
+      passwordHash
+    })
+
+    const user = await doc.save();
+
+    const token = jwt.sign({
+      _id: user._id,
+    },
+      'secret',
+      {
+      expiresIn: '30d',
+    })
+
+    const { passwordHash: _, ...userData } = user._doc;
+
+    res.json({
+      ...userData,
+      token
+    })
+  } catch(err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: 'Something went wrong'
+    })
+  }
 })
 
 app.listen(4444, (err) => {
