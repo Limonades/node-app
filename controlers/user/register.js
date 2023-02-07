@@ -1,4 +1,3 @@
-import { validationResult } from 'express-validator';
 import bcrypt from 'bcrypt';
 import UserModel from '../../models/User.js';
 import jwt from 'jsonwebtoken';
@@ -6,12 +5,6 @@ import { SECRET_TOKEN_TYPE } from '../../constants/tokenType.js';
 
 const register = async (req, res) => {
 	try {
-		const errors = validationResult(req);
-
-		if (!errors.isEmpty()) {
-			return res.status(400).json(errors.array());
-		}
-
 		const {
 			email,
 			fullName,
