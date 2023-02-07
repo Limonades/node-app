@@ -11,6 +11,7 @@ import getPosts from './controlers/post/getPosts.js';
 import getPost from './controlers/post/getPost.js';
 import deletePost from './controlers/post/deletePost.js';
 import updatePost from './controlers/post/updatePost.js';
+import multer from 'multer';
 
 mongoose.set('strictQuery', true);
 mongoose.connect('mongodb+srv://admin:qwqwqw@cluster0.icohgdv.mongodb.net/blog?retryWrites=true&w=majority')
@@ -19,11 +20,29 @@ mongoose.connect('mongodb+srv://admin:qwqwqw@cluster0.icohgdv.mongodb.net/blog?r
 
 const app = express();
 
+const storage = multer.diskStorage({
+	destination: (_, __, cb) => {
+		cb(null, 'uploads')
+	},
+	filename: (_, file, cb) => {
+		cb(null, file.originalname)
+	},
+})
+
+const upload = multer({ storage})
+
 app.use(express.json())
+app.use('/uploads', express.static('uploads'))
 
 app.get('/auth/me', checkAuth, getUser);
 app.post('/auth/login', loginValidation, login)
 app.post('/auth/register', registerValidation, register);
+
+app.post('/upload', checkAuth, upload.single('image'), (req, res) => {
+	res.json({
+		url: `/uploads/${req.file.originalname}`
+	});
+})
 
 app.get('/posts', getPosts);
 app.get('/posts/:id', getPost);
